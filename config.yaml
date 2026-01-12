@@ -1,0 +1,45 @@
+# SiteGuard AI Configuration
+# YAML configuration file for application settings
+
+detector:
+  model_path: "runs/train/ppe-detector4/weights/best.pt"  # Custom trained PPE model
+  confidence_threshold: 0.5
+  iou_threshold: 0.45
+  device: "cuda"  # Using GPU for faster inference
+  enable_tracking: false
+  
+llm:
+  provider: "ollama"  # ollama (free), openai, or gemini
+  model: "llama3"  # llama3, mistral, phi3, gpt-4o, gemini-pro
+  temperature: 0.3
+  max_tokens: 1500
+  base_url: "http://localhost:11434"  # For Ollama
+
+report:
+  default_format: "formal"  # formal, technical, executive, email
+  include_recommendations: true
+  include_osha_citations: true
+  
+paths:
+  models: "models"
+  uploads: "data/uploads"
+  outputs: "data/outputs"
+  reports: "reports"
+  logs: "logs"
+
+api:
+  host: "0.0.0.0"
+  port: 8000
+  reload: true
+  cors_origins: ["*"]
+  
+web:
+  host: "localhost"
+  port: 8501
+  theme: "light"
+
+logging:
+  level: "INFO"  # DEBUG, INFO, WARNING, ERROR
+  format: "text"  # text or json
+  rotation: "1 day"
+  retention: "30 days"

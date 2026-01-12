@@ -1,0 +1,15 @@
+[MASTER]
+ignore=venv,env,build,dist
+
+[MESSAGES CONTROL]
+disable=C0111,C0103,R0903,R0913
+
+[FORMAT]
+max-line-length=120
+
+[BASIC]
+good-names=i,j,k,x,y,z,id,db,cv
+
+[DESIGN]
+max-args=8
+max-attributes=12
