@@ -1,5 +1,5 @@
 # Core Dependencies
-ultralytics==8.1.20
+ultralytics==8.3.252
 opencv-python==4.9.0.80
 opencv-python-headless==4.9.0.80
 Pillow==10.2.0
@@ -115,3 +115,6 @@ mkdocs-material==9.5.6
 # Time & Date
 python-dateutil==2.8.2
 pytz==2023.3.post1
+
+# Data Visualization
+plotly==5.18.0
