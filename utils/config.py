@@ -105,6 +105,9 @@ def load_config(
     yaml_config = {}
     if config_file:
         yaml_config = load_yaml_config(config_file)
+    else:
+        # Load default config.yaml if no specific file provided
+        yaml_config = load_yaml_config("config.yaml")
     
     # Merge with environment variables
     config_dict = {

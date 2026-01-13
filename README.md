@@ -4,6 +4,8 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 
+**✨ New: DeepStream-like real-time video processing with continuous frame-by-frame PPE detection**
+
 A production-ready computer vision and AI system for automated workplace safety monitoring and compliance reporting using YOLOv8 object detection and Large Language Models (GPT-4o/Gemini).
 
 ## 🎯 Overview
@@ -14,8 +16,9 @@ SiteGuard AI combines state-of-the-art computer vision with generative AI to aut
 
 ### Key Features
 
-- **Real-time PPE Detection**: YOLOv8-based detection for helmets, safety vests, and compliance violations
+- **DeepStream-like Video Processing**: True real-time frame-by-frame analysis with configurable FPS and low-latency detection
 - **Automated Report Generation**: LLM-powered incident reporting with OSHA/ISO standards citation
+- **Telegram Notifications**: Instant alerts sent to Telegram channels when violations are detected
 - **Multi-Camera Support**: Process images from CCTV feeds, uploaded photos, or batch processing
 - **RESTful API**: Production-ready FastAPI backend with comprehensive endpoints
 - **Interactive Dashboard**: Streamlit-based web interface for safety officers
@@ -85,6 +88,10 @@ LLM_PROVIDER=openai  # or 'gemini'
 OPENAI_API_KEY=your_openai_api_key_here
 GEMINI_API_KEY=your_gemini_api_key_here
 
+# Telegram Notifications (Pre-configured)
+TELEGRAM_BOT_TOKEN=your_bot_token_here
+TELEGRAM_CHANNEL_ID=@your_channel_or_chat_id
+
 # Model Configuration
 YOLO_MODEL_PATH=models/yolov8n-ppe.pt
 CONFIDENCE_THRESHOLD=0.5
@@ -95,6 +102,45 @@ REPORTS_DIR=reports
 UPLOADS_DIR=uploads
 ```
 
+#### Telegram Bot Setup (Pre-configured)
+
+**Option 1: Automatic Setup (Recommended)**
+
+```bash
+# Run the interactive setup script
+python scripts/setup_telegram.py
+```
+
+This script will:
+- Guide you through bot creation
+- Update your `config.yaml` automatically
+- Test the bot connection
+- Enable notifications by default
+
+**Option 2: Manual Configuration**
+
+1. **Create a Telegram Bot**:
+   - Message [@BotFather](https://t.me/botfather) on Telegram
+   - Send `/newbot` and follow the instructions
+   - Save the bot token
+
+2. **Create a Channel**:
+   - Create a new channel on Telegram
+   - Add your bot as an administrator
+   - Get the channel ID (or use @channelname)
+
+3. **Configure in config.yaml**:
+   ```yaml
+   telegram:
+     bot_token: "your_actual_bot_token_here"
+     channel_id: "@your_channel_or_-1001234567890"
+     enabled: true
+   ```
+
+4. **Alternative: Runtime Configuration**:
+   - The app will automatically load Telegram settings from `config.yaml`
+   - You can override settings manually in the sidebar if needed
+
 ### 4. Download PPE Detection Model
 
 ```bash
@@ -102,7 +148,37 @@ UPLOADS_DIR=uploads
 python scripts/download_model.py
 ```
 
-### 5. Run the Application
+### 5. Camera Setup (Optional - for IP Camera Networks)
+
+If you have ONVIF-compatible IP cameras on your network, you can discover and configure them:
+
+```bash
+# Discover ONVIF cameras and get RTSP URLs
+python scripts/onvif_discovery.py
+```
+
+This interactive script will:
+- Scan your network for ONVIF cameras
+- Prompt for camera credentials
+- Test RTSP connections
+- Display working RTSP URLs for use in the application
+
+**Alternative: Manual Camera Configuration**
+
+If ONVIF discovery doesn't work, you can manually configure cameras:
+
+```bash
+# Demo script showing how to configure known cameras
+python scripts/demo_camera_setup.py
+```
+
+Or use the interactive manual entry in the discovery script:
+```bash
+python scripts/onvif_discovery.py
+# Then choose (M) for Manual entry mode
+```
+
+### 6. Run the Application
 
 #### Option A: Streamlit Dashboard (Recommended for demo)
 
@@ -122,7 +198,7 @@ uvicorn app.api.main:app --reload --host 0.0.0.0 --port 8000
 docker-compose up --build
 ```
 
-## 📁 Project Structure
+### 7. Access the Application
 
 ```
 siteguard-ai/

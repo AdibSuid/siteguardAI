@@ -82,6 +82,31 @@ GEMINI_API_KEY=your-gemini-key-here
 - OpenAI: https://platform.openai.com/api-keys
 - Google Gemini: https://makersuite.google.com/app/apikey
 
+### 5️⃣ Setup Telegram Notifications (Optional but Recommended)
+
+```bash
+# Run interactive Telegram setup
+python scripts/setup_telegram.py
+```
+
+This will:
+- Guide you through creating a Telegram bot
+- Set up a notification channel
+- Configure `config.yaml` automatically
+- Test the bot connection
+
+**Manual Setup:**
+1. Message [@BotFather](https://t.me/botfather) on Telegram
+2. Send `/newbot` and follow instructions
+3. Create a channel and add bot as admin
+4. Edit `config.yaml`:
+   ```yaml
+   telegram:
+     bot_token: "your_bot_token_here"
+     channel_id: "@your_channel"
+     enabled: true
+   ```
+
 ### 6️⃣ Download YOLO Model
 
 ```bash
