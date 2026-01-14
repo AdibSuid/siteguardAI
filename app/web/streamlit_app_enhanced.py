@@ -21,12 +21,19 @@ from typing import Dict, List
 # Add project root to path
 sys.path.insert(0, str(Path(__file__).parent.parent.parent))
 
+# Debug logging
+print("🔍 Starting SiteGuard AI application...")
+print(f"Python version: {sys.version}")
+print(f"Current working directory: {Path.cwd()}")
+
 from app.core.vision.detector import PPEDetector, create_detector
 from app.core.llm.generator import ReportGenerator, ReportMetadata, ReportFormat, create_report_generator
 from app.core.notification import create_telegram_notifier
 from app.core.vision.rtsp_onvif import RTSPCamera, ONVIFDiscovery
 from utils.config import load_config
 from loguru import logger
+
+print("✅ Imports completed successfully")
 
 
 # Working ONVIF Discovery Implementation
@@ -2951,4 +2958,12 @@ def main():
 
 
 if __name__ == "__main__":
-    main()
+    try:
+        main()
+    except Exception as e:
+        st.error(f"🚨 Application Error: {str(e)}")
+        st.error("Please check the logs for more details.")
+        import traceback
+        st.code(traceback.format_exc(), language="text")
+        logger.error(f"Application startup failed: {e}")
+        logger.error(traceback.format_exc())
