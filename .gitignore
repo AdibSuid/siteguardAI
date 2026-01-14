@@ -58,6 +58,8 @@ models/*.pt
 models/*.onnx
 models/*.engine
 !models/.gitkeep
+# Include specific model files needed for deployment
+!yolo11n.pt
 
 # Reports
 reports/*

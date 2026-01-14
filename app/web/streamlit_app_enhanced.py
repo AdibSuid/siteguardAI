@@ -1045,12 +1045,17 @@ def load_models(config):
         with st.spinner("🔄 Loading AI models..."):
             # Load detector
             if st.session_state.detector is None:
-                detector_config = {
-                    "model_path": config.get('detector.model_path', "runs/train/ppe-detector4/weights/best.pt"),
-                    "confidence_threshold": st.session_state.confidence_threshold,
-                    "device": config.get('detector.device', "cpu")
-                }
-                st.session_state.detector = create_detector(detector_config)
+                try:
+                    detector_config = {
+                        "model_path": config.get('detector.model_path', "yolo11n.pt"),
+                        "confidence_threshold": config.get('detector.confidence_threshold', 0.5),
+                        "device": config.get('detector.device', "cpu")
+                    }
+                    st.session_state.detector = create_detector(detector_config)
+                except Exception as e:
+                    st.error(f"❌ Failed to load PPE detection model: {e}")
+                    st.info("💡 Please ensure the model file exists and try again.")
+                    st.session_state.detector = None
 
             # Load report generator (optional if API key not available)
             if st.session_state.report_generator is None:
@@ -2062,6 +2067,9 @@ def main():
                 image = Image.open(uploaded_file)
                 st.image(image, caption="Uploaded Image", width="stretch")
 
+                # Store current image for evidence
+                st.session_state.current_image = image
+
                 # Convert to numpy
                 image_np = np.array(image)
                 if len(image_np.shape) == 2:
@@ -2156,15 +2164,65 @@ def main():
                     st.markdown("### 📝 Report Generation")
                     col_btn1, col_btn2 = st.columns(2)
                     with col_btn1:
-                        if st.button("📄 Generate Report", type="primary", disabled=st.session_state.report_generator is None):
+                        if st.button("📄 Generate OSHA Report", type="primary", disabled=st.session_state.report_generator is None):
                             if st.session_state.report_generator:
-                                with st.spinner("📝 Generating incident report..."):
+                                with st.spinner("📝 Generating OSHA-compliant incident report..."):
+                                    # Save current image for visual evidence
+                                    visual_evidence_path = None
+                                    try:
+                                        evidence_dir = Path("data/evidence")
+                                        evidence_dir.mkdir(exist_ok=True, parents=True)
+                                        evidence_path = evidence_dir / f"violation_{datetime.now().strftime('%Y%m%d_%H%M%S')}.jpg"
+                                        st.session_state.current_image.save(str(evidence_path))
+                                        visual_evidence_path = str(evidence_path)
+                                    except Exception as e:
+                                        st.warning(f"Could not save visual evidence: {e}")
+                                        visual_evidence_path = None
+
+                                    # Generate report with available data
                                     metadata = ReportMetadata(
                                         location=st.session_state.location,
                                         timestamp=datetime.now(),
                                         site_id=st.session_state.site_id or None,
-                                        inspector_id=st.session_state.inspector_id or None
+                                        inspector_id=st.session_state.inspector_id or None,
+                                        camera_id="AI Detection System",
+                                        # OSHA fields will be filled by user after generation
+                                        ref_no=f"SG-{datetime.now().strftime('%Y%m%d')}-{str(uuid.uuid4())[:4].upper()}",
+                                        legal_clause="Failure to comply with Section 24, OSHA 1994",
+                                        penalty_amount=50.00,
+                                        visual_evidence_path=visual_evidence_path
                                     )
+
+                                    # Auto-detect violation categories from results
+                                    # Map detector violation types to PPE checklist items
+                                    violation_type_mapping = {
+                                        'no_hardhat': 'helmet',
+                                        'no_helmet': 'helmet',
+                                        'no_vest': 'vest',
+                                        'no_shoes': 'shoes',
+                                        'no_mask': 'mask',
+                                        'no_gloves': 'gloves',
+                                        'no_goggles': 'goggles'
+                                    }
+
+                                    violation_categories = []
+                                    if results.violations:
+                                        for violation in results.violations:
+                                            vtype = violation.get('type', '')
+                                            # Map violation types to PPE checklist items
+                                            if vtype in violation_type_mapping:
+                                                ppe_item = violation_type_mapping[vtype]
+                                                if ppe_item not in violation_categories:
+                                                    violation_categories.append(ppe_item)
+                                            elif vtype.startswith('no_'):
+                                                ppe_item = vtype[3:]  # Remove 'no_' prefix
+                                                if ppe_item not in violation_categories:
+                                                    violation_categories.append(ppe_item)
+                                            elif vtype and vtype not in violation_categories:
+                                                violation_categories.append(vtype)
+
+                                    metadata.violation_categories = violation_categories if violation_categories else None
+
                                     report_format = ReportFormat[st.session_state.report_format.upper()]
                                     try:
                                         report = st.session_state.report_generator.generate_report(
@@ -2173,7 +2231,7 @@ def main():
                                             format=report_format
                                         )
                                         st.session_state.report = report
-                                        st.success("✅ Report generated!")
+                                        st.success("✅ OSHA report generated! Edit details below if needed.")
                                         st.rerun()
                                     except Exception as e:
                                         st.error(f"❌ Report generation failed: {e}")
@@ -2757,35 +2815,128 @@ def main():
     # Report section (if generated)
     if st.session_state.report is not None:
         st.markdown("---")
-        st.header("📄 Generated Incident Report")
+        st.header("📄 OSHA Incident Report")
 
         report = st.session_state.report
 
-        col_r1, col_r2, col_r3 = st.columns(3)
+        # OSHA Details Editor
+        with st.expander("📝 Edit OSHA Report Details", expanded=False):
+            st.markdown("### 👤 Worker Information")
+            col_edit1, col_edit2 = st.columns(2)
+
+            with col_edit1:
+                worker_name = st.text_input("Worker Name", value=report.metadata.worker_name or "", placeholder="Enter worker's full name")
+                worker_id = st.text_input("Staff ID", value=report.metadata.worker_id or "", placeholder="Enter staff ID")
+                company_name = st.text_input("Company Name", value=report.metadata.company_name or "", placeholder="Enter company/sub-contractor name")
+
+            with col_edit2:
+                shift_options = ["Morning", "Afternoon", "Night", "Unknown"]
+                current_shift = report.metadata.shift if report.metadata.shift in shift_options else "Unknown"
+                shift_info = st.selectbox("Shift", shift_options, index=shift_options.index(current_shift))
+
+                weather_options = ["Sunny", "Cloudy", "Rainy", "Unknown"]
+                current_weather = report.metadata.weather_conditions if report.metadata.weather_conditions in weather_options else "Unknown"
+                weather = st.selectbox("Weather Conditions", weather_options, index=weather_options.index(current_weather))
+
+            # PPE Violation Editor
+            st.markdown("### 🛡️ PPE Violation Checklist")
+            st.markdown("*Auto-detected violations are pre-checked. Edit as needed.*")
+
+            ppe_items = {
+                "helmet": "Safety Helmet",
+                "vest": "Safety Vest",
+                "shoes": "Safety Shoes",
+                "gloves": "Safety Gloves",
+                "goggles": "Safety Goggles",
+                "mask": "Face Mask"
+            }
+
+            current_violations = report.metadata.violation_categories or []
+            updated_violations = []
+
+            cols = st.columns(3)
+            for i, (key, label) in enumerate(ppe_items.items()):
+                with cols[i % 3]:
+                    is_checked = st.checkbox(
+                        f"{label}",
+                        value=key in current_violations,
+                        key=f"edit_violation_{key}",
+                        help=f"Auto-detected: {'Yes' if key in current_violations else 'No'}"
+                    )
+                    if is_checked:
+                        updated_violations.append(key)
+
+            # Update button
+            if st.button("🔄 Update Report Details", type="secondary"):
+                # Update report metadata
+                report.metadata.worker_name = worker_name if worker_name else None
+                report.metadata.worker_id = worker_id if worker_id else None
+                report.metadata.company_name = company_name if company_name else None
+                report.metadata.shift = shift_info if shift_info != "Unknown" else None
+                report.metadata.weather_conditions = weather if weather != "Unknown" else None
+                report.metadata.violation_categories = updated_violations if updated_violations else None
+
+                st.success("✅ Report details updated!")
+                st.rerun()
+
+        # Report Summary
+        col_r1, col_r2, col_r3, col_r4 = st.columns(4)
         with col_r1:
             st.metric("Report ID", report.report_id[:8] + "...")
         with col_r2:
-            st.metric("Violations", len(report.violations))
+            st.metric("Reference No", report.metadata.ref_no or "N/A")
         with col_r3:
-            st.metric("Format", report.format.value.upper())
+            st.metric("Violations", len(report.violations))
+        with col_r4:
+            st.metric("Penalty", f"RM {report.metadata.penalty_amount:.2f}")
+
+        # OSHA Information Display
+        if report.metadata.worker_name or report.metadata.worker_id or report.metadata.company_name:
+            st.markdown("### 👷 Worker Details")
+            worker_info = []
+            if report.metadata.worker_name:
+                worker_info.append(f"**Name:** {report.metadata.worker_name}")
+            if report.metadata.worker_id:
+                worker_info.append(f"**Staff ID:** {report.metadata.worker_id}")
+            if report.metadata.company_name:
+                worker_info.append(f"**Company:** {report.metadata.company_name}")
+            if report.metadata.shift:
+                worker_info.append(f"**Shift:** {report.metadata.shift}")
+            if report.metadata.weather_conditions:
+                worker_info.append(f"**Weather:** {report.metadata.weather_conditions}")
+
+            if worker_info:
+                st.markdown(" | ".join(worker_info))
 
         st.text_area("Report Content", value=report.text, height=300)
 
         # Export buttons
-        col_e1, col_e2 = st.columns(2)
+        st.markdown("### 💾 Download Report")
+        col_e1, col_e2, col_e3 = st.columns(3)
         with col_e1:
             st.download_button(
-                "📥 Download as JSON",
-                data=json.dumps(report.to_dict(), indent=2),
-                file_name=f"{report.report_id}.json",
-                mime="application/json"
+                "📋 OSHA PDF Report",
+                data=st.session_state.report_generator.generate_pdf_report(report),
+                file_name=f"OSHA_Violation_{report.metadata.ref_no or report.report_id}.pdf",
+                mime="application/pdf",
+                type="primary",
+                help="Download professional OSHA-compliant PDF report"
             )
         with col_e2:
             st.download_button(
-                "📥 Download as TXT",
+                "📄 JSON Data",
+                data=json.dumps(report.to_dict(), indent=2),
+                file_name=f"{report.report_id}.json",
+                mime="application/json",
+                help="Download report data in JSON format"
+            )
+        with col_e3:
+            st.download_button(
+                "📝 Text Report",
                 data=report.text,
                 file_name=f"{report.report_id}.txt",
-                mime="text/plain"
+                mime="text/plain",
+                help="Download report as plain text"
             )
 
     # Footer

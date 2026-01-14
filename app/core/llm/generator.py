@@ -39,6 +39,15 @@ class ReportMetadata:
     shift: Optional[str] = None
     weather_conditions: Optional[str] = None
     camera_id: Optional[str] = None
+    # OSHA-specific fields
+    ref_no: Optional[str] = None  # Reference number for tracking
+    worker_name: Optional[str] = None
+    worker_id: Optional[str] = None
+    company_name: Optional[str] = None
+    violation_categories: Optional[List[str]] = None  # ['helmet', 'vest', 'shoes', etc.]
+    legal_clause: str = "Failure to comply with Section 24, OSHA 1994"
+    penalty_amount: float = 50.00  # RM50.00 standard for first-time PPE violations
+    visual_evidence_path: Optional[str] = None
 
 
 @dataclass
@@ -66,7 +75,15 @@ class IncidentReport:
                 "site_id": self.metadata.site_id,
                 "shift": self.metadata.shift,
                 "weather_conditions": self.metadata.weather_conditions,
-                "camera_id": self.metadata.camera_id
+                "camera_id": self.metadata.camera_id,
+                "ref_no": self.metadata.ref_no,
+                "worker_name": self.metadata.worker_name,
+                "worker_id": self.metadata.worker_id,
+                "company_name": self.metadata.company_name,
+                "violation_categories": self.metadata.violation_categories,
+                "legal_clause": self.metadata.legal_clause,
+                "penalty_amount": self.metadata.penalty_amount,
+                "visual_evidence_path": self.metadata.visual_evidence_path
             },
             "violations": self.violations,
             "recommendations": self.recommendations,
@@ -532,6 +549,189 @@ Status: COMPLIANT
             format=ReportFormat.FORMAL,
             generated_at=datetime.now()
         )
+
+
+    def generate_pdf_report(self, report: IncidentReport) -> bytes:
+        """
+        Generate professional OSHA-compliant PDF report.
+
+        Args:
+            report: IncidentReport object
+
+        Returns:
+            bytes: PDF content as bytes
+        """
+        from reportlab.lib import colors
+        from reportlab.lib.pagesizes import letter, A4
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import inch
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, Image
+        from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
+        from io import BytesIO
+        import os
+
+        # Create PDF buffer
+        buffer = BytesIO()
+        doc = SimpleDocTemplate(buffer, pagesize=A4)
+        styles = getSampleStyleSheet()
+
+        # Custom styles
+        title_style = ParagraphStyle(
+            'CustomTitle',
+            parent=styles['Heading1'],
+            fontSize=20,
+            spaceAfter=30,
+            alignment=TA_CENTER,
+            textColor=colors.darkblue
+        )
+
+        header_style = ParagraphStyle(
+            'HeaderStyle',
+            parent=styles['Normal'],
+            fontSize=12,
+            textColor=colors.darkgrey
+        )
+
+        section_style = ParagraphStyle(
+            'SectionStyle',
+            parent=styles['Heading2'],
+            fontSize=14,
+            spaceAfter=10,
+            textColor=colors.darkblue
+        )
+
+        normal_style = styles['Normal']
+
+        # Build PDF content
+        content = []
+
+        # Title
+        content.append(Paragraph("OCCUPATIONAL SAFETY & HEALTH ACT 1994", title_style))
+        content.append(Paragraph("PERSONAL PROTECTIVE EQUIPMENT (PPE) VIOLATION NOTICE", title_style))
+        content.append(Spacer(1, 20))
+
+        # Reference Information
+        ref_table_data = [
+            ["Reference No (No. Rujukan):", report.metadata.ref_no or f"SG-{report.report_id[:8]}"],
+            ["Report ID:", report.report_id],
+            ["Date & Time:", report.metadata.timestamp.strftime("%d/%m/%Y %H:%M")],
+            ["Location:", report.metadata.location],
+            ["Inspector ID:", report.metadata.inspector_id or "AI System"],
+            ["Camera ID:", report.metadata.camera_id or "N/A"]
+        ]
+
+        ref_table = Table(ref_table_data, colWidths=[2.5*inch, 3.5*inch])
+        ref_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightgrey),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+        ]))
+        content.append(ref_table)
+        content.append(Spacer(1, 20))
+
+        # Worker Information Section
+        content.append(Paragraph("WORKER/SUB-CONTRACTOR DETAILS", section_style))
+
+        worker_table_data = [
+            ["Worker Name:", report.metadata.worker_name or "Not specified"],
+            ["Staff ID:", report.metadata.worker_id or "Not specified"],
+            ["Company:", report.metadata.company_name or "Not specified"],
+            ["Shift:", report.metadata.shift or "Not specified"],
+            ["Weather Conditions:", report.metadata.weather_conditions or "Not recorded"]
+        ]
+
+        worker_table = Table(worker_table_data, colWidths=[2.5*inch, 3.5*inch])
+        worker_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (0, -1), colors.lightblue),
+            ('TEXTCOLOR', (0, 0), (-1, -1), colors.black),
+            ('ALIGN', (0, 0), (-1, -1), 'LEFT'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica'),
+            ('FONTSIZE', (0, 0), (-1, -1), 10),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+        ]))
+        content.append(worker_table)
+        content.append(Spacer(1, 20))
+
+        # Violation Details
+        content.append(Paragraph("VIOLATION DETAILS", section_style))
+
+        # PPE Checklist
+        ppe_items = ['helmet', 'vest', 'shoes', 'gloves', 'goggles', 'mask']
+        violation_categories = report.metadata.violation_categories or []
+
+        ppe_checklist_data = [["PPE Item", "Required", "Present"]]
+        for item in ppe_items:
+            status = "❌ NO" if item in violation_categories else "✅ YES"
+            ppe_checklist_data.append([item.title(), "YES", status])
+
+        ppe_table = Table(ppe_checklist_data, colWidths=[1.5*inch, 1.5*inch, 1.5*inch])
+        ppe_table.setStyle(TableStyle([
+            ('BACKGROUND', (0, 0), (-1, 0), colors.darkblue),
+            ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
+            ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
+            ('FONTNAME', (0, 0), (-1, -1), 'Helvetica-Bold'),
+            ('FONTSIZE', (0, 0), (-1, 0), 10),
+            ('GRID', (0, 0), (-1, -1), 1, colors.black),
+            ('BACKGROUND', (0, 1), (-1, -1), colors.white),
+            ('TEXTCOLOR', (0, 1), (-1, -1), colors.black),
+            ('FONTNAME', (0, 1), (-1, -1), 'Helvetica'),
+        ]))
+        content.append(ppe_table)
+        content.append(Spacer(1, 20))
+
+        # Legal Information
+        content.append(Paragraph("LEGAL INFORMATION", section_style))
+        legal_text = f"""
+        <b>Legal Clause:</b> {report.metadata.legal_clause}<br/><br/>
+        <b>Penalty Amount:</b> RM {report.metadata.penalty_amount:.2f}<br/>
+        (Standard penalty for first-time PPE violation under OSHA 1994)
+        """
+        content.append(Paragraph(legal_text, normal_style))
+        content.append(Spacer(1, 20))
+
+        # Visual Evidence Section
+        content.append(Paragraph("VISUAL EVIDENCE", section_style))
+        if report.metadata.visual_evidence_path and os.path.exists(report.metadata.visual_evidence_path):
+            try:
+                # Add image to PDF
+                img = Image(report.metadata.visual_evidence_path, width=4*inch, height=3*inch)
+                content.append(img)
+                content.append(Paragraph("<i>AI-captured evidence of PPE violation</i>", header_style))
+            except Exception as e:
+                content.append(Paragraph("Visual evidence could not be loaded", normal_style))
+        else:
+            content.append(Paragraph("No visual evidence available", normal_style))
+        content.append(Spacer(1, 20))
+
+        # Detailed Report
+        content.append(Paragraph("INCIDENT REPORT DETAILS", section_style))
+        content.append(Paragraph(report.text, normal_style))
+        content.append(Spacer(1, 20))
+
+        # Recommendations
+        if report.recommendations:
+            content.append(Paragraph("RECOMMENDATIONS", section_style))
+            for rec in report.recommendations:
+                content.append(Paragraph(f"• {rec}", normal_style))
+            content.append(Spacer(1, 20))
+
+        # Footer
+        content.append(Paragraph("---", normal_style))
+        footer_text = f"""
+        <i>This report was generated by SiteGuard AI Pro on {report.generated_at.strftime('%d/%m/%Y at %H:%M')}<br/>
+        For official use only. Contact safety officer for further action.</i>
+        """
+        content.append(Paragraph(footer_text, header_style))
+
+        # Build PDF
+        doc.build(content)
+        buffer.seek(0)
+        return buffer.getvalue()
 
 
 def create_report_generator(config: Optional[Dict] = None) -> ReportGenerator:

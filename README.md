@@ -320,10 +320,37 @@ pytest -v -s
 
 ### Streamlit Cloud
 
-1. Push your code to GitHub
-2. Connect repository to Streamlit Cloud
-3. Add secrets in Streamlit dashboard
-4. Deploy with one click
+1. **Validate deployment readiness**
+   ```bash
+   python validate_deployment.py
+   ```
+
+2. **Push your code to GitHub**
+   ```bash
+   git add .
+   git commit -m "Ready for Streamlit Cloud deployment"
+   git push origin main
+   ```
+
+3. **Connect repository to Streamlit Cloud**
+   - Go to [share.streamlit.io](https://share.streamlit.io)
+   - Connect your GitHub repository
+   - Select the main branch
+
+4. **Configure deployment settings**
+   - **Main file path**: `app/web/streamlit_app_enhanced.py`
+   - **Python version**: `3.13`
+   - The app will automatically use the included `requirements.txt`, `packages.txt`, and `runtime.txt`
+
+5. **Add secrets (optional)**
+   - For LLM features: Add `OPENAI_API_KEY` or `GOOGLE_API_KEY`
+   - For Telegram notifications: Add `TELEGRAM_BOT_TOKEN` and `TELEGRAM_CHAT_ID`
+
+6. **Deploy**
+   - Click "Deploy" and wait for the build to complete
+   - Your app will be available at a `*.streamlit.app` URL
+
+**Note**: The app uses `yolo11n.pt` model which is included in the repository for reliable cloud deployment.
 
 ### Docker
 
