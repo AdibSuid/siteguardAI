@@ -1303,6 +1303,7 @@ def webcam_detection_page():
                 cap.release()
 
         camera_source = None
+        selected_camera = None  # Initialize to avoid UnboundLocalError
         if camera_devices:
             selected_camera = st.selectbox("Select Webcam Device", camera_devices, index=0)
             camera_source = int(selected_camera.split()[-1])
