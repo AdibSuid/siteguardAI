@@ -3,18 +3,12 @@
 # If false, makes your Streamlit script run as a module.
 developmentMode = false
 
-# Allows you to type a variable or string by itself in a single line of Python code to write it to the app.
-dataFrameSerialization = "legacy"
-
 [logger]
 
 # Level of logging: 'error', 'warning', 'info', 'debug'.
 level = "info"
 
 [client]
-
-# Whether to enable st.cache.
-caching = true
 
 # If false, will attempt to open a new tab or window every time Streamlit is
 # called. If true, will only open a new tab the first time Streamlit is called.
@@ -59,7 +53,7 @@ baseUrlPath = ""
 enableCORS = false
 
 # Enables support for Cross-Site Request Forgery (XSRF) protection, for added security.
-enableXsrfProtection = true
+enableXsrfProtection = false
 
 # Max size, in megabytes, for files uploaded with the file_uploader.
 maxUploadSize = 200
