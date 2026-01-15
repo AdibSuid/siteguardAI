@@ -2915,10 +2915,32 @@ def main():
 
                             st.info(f"📹 Video: {total_frames} frames @ {fps:.1f} FPS | {width}x{height}")
 
-                            # Create output video writer with H.264 codec for browser compatibility
+                            # Create output video writer with compatible codec
                             output_path = video_path.replace('.mp4', '_annotated.mp4')
-                            fourcc = cv2.VideoWriter_fourcc(*'avc1')  # H.264 codec
-                            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+                            # Try multiple codecs for compatibility
+                            fourcc_options = [
+                                ('mp4v', 'MPEG-4'),  # Most compatible
+                                ('avc1', 'H.264'),   # Requires OpenH264
+                                ('XVID', 'Xvid'),    # Alternative
+                            ]
+
+                            out = None
+                            for fourcc_code, codec_name in fourcc_options:
+                                try:
+                                    fourcc = cv2.VideoWriter_fourcc(*fourcc_code)
+                                    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+                                    if out is not None and out.isOpened():
+                                        logger.info(f"Using {codec_name} codec for video output")
+                                        break
+                                    else:
+                                        out = None
+                                except Exception as e:
+                                    logger.warning(f"Failed to initialize {codec_name} codec: {e}")
+                                    continue
+
+                            if out is None or not out.isOpened():
+                                st.error("❌ Failed to initialize video writer with any codec")
+                                st.stop()
 
                             # Storage for results
                             all_violations = []
@@ -3222,10 +3244,32 @@ def main():
 
                             st.info(f"📹 Video: {total_frames} frames @ {fps:.1f} FPS | {width}x{height}")
 
-                            # Create output video writer with H.264 codec for browser compatibility
+                            # Create output video writer with compatible codec
                             output_path = video_path.replace('.mp4', '_annotated.mp4')
-                            fourcc = cv2.VideoWriter_fourcc(*'avc1')  # H.264 codec
-                            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+                            # Try multiple codecs for compatibility
+                            fourcc_options = [
+                                ('mp4v', 'MPEG-4'),  # Most compatible
+                                ('avc1', 'H.264'),   # Requires OpenH264
+                                ('XVID', 'Xvid'),    # Alternative
+                            ]
+
+                            out = None
+                            for fourcc_code, codec_name in fourcc_options:
+                                try:
+                                    fourcc = cv2.VideoWriter_fourcc(*fourcc_code)
+                                    out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+                                    if out is not None and out.isOpened():
+                                        logger.info(f"Using {codec_name} codec for video output")
+                                        break
+                                    else:
+                                        out = None
+                                except Exception as e:
+                                    logger.warning(f"Failed to initialize {codec_name} codec: {e}")
+                                    continue
+
+                            if out is None or not out.isOpened():
+                                st.error("❌ Failed to initialize video writer with any codec")
+                                st.stop()
 
                             # Storage for results
                             all_violations = []
