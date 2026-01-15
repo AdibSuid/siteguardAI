@@ -1447,6 +1447,9 @@ def show_welcome_screen():
     with col_cta2:
         if st.button("🚀 Get Started - Initialize System Now", type="primary", use_container_width=True):
             st.session_state.show_welcome = False
+            # Also trigger system initialization
+            config = load_config()
+            load_models(config)
             st.rerun()
         
         st.markdown("<br>", unsafe_allow_html=True)
@@ -2351,8 +2354,8 @@ def main():
     # Load configuration
     config = load_config()
 
-    # Show welcome screen for first-time users or if system not initialized
-    if st.session_state.show_welcome or not st.session_state.system_initialized:
+    # Show welcome screen for first-time users
+    if st.session_state.show_welcome:
         show_welcome_screen()
         return
 
