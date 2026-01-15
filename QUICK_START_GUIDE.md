@@ -83,11 +83,13 @@ Select the tab that matches your needs:
 #### 📹 Tab 3: Live Webcam
 **Best for:** Real-time monitoring, live demonstrations, continuous surveillance
 
+**⚠️ Important:** Only works with local deployment (localhost). Not compatible with Streamlit public URLs or cloud deployment.
+
 **How to use:**
 1. Select your webcam from dropdown
 2. Adjust **"Target FPS"** (10-15 recommended)
 3. Set **"Display Confidence"** threshold (0.5 default)
-4. Check **"🎬 Start Webcam Stream"**
+4. Click **"🎬 START WEBCAM STREAM"** (large blue button)
 5. Watch live detection results
 
 **Use cases:**
@@ -101,12 +103,14 @@ Select the tab that matches your needs:
 #### 🔍 Tab 4: RTSP Cameras
 **Best for:** Professional CCTV systems, IP cameras, enterprise monitoring
 
+**⚠️ Important:** Only works with local deployment (localhost). Not compatible with Streamlit public URLs or cloud deployment.
+
 **How to use:**
 1. Click **"🔍 Discover ONVIF Cameras"**
 2. Enter camera credentials (username/password)
 3. Click **"➕ Add Camera"**
 4. Select camera from list
-5. Check **"🎬 Start ONVIF Stream"**
+5. Click **"🎬 START CAMERA STREAM"** (large blue button)
 
 **Use cases:**
 - Enterprise CCTV integration
