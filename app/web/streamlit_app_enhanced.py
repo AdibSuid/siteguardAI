@@ -1039,7 +1039,9 @@ def init_session_state():
             'processing_times': []
         },
         'telegram_bot_token': '',
-        'telegram_channel_id': ''
+        'telegram_channel_id': '',
+        'show_welcome': True,  # Show welcome screen for first-time users
+        'system_initialized': False  # Track if system has been initialized
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -1089,11 +1091,384 @@ def load_models(config):
                     st.info("📱 Telegram notifications not configured (check config.yaml)")
 
         st.success("✅ System ready!")
+        st.session_state.system_initialized = True
         return True
     except Exception as e:
         st.error(f"❌ Error loading models: {e}")
         logger.error(f"Model loading failed: {e}")
         return False
+
+
+def create_analytics_charts():
+    """Create analytics dashboard with charts."""
+    st.header("📊 Analytics Dashboard")
+
+    # Generate sample data if no history
+    if len(st.session_state.history) == 0:
+        st.info("📈 No detection history yet. Analyze some images to see statistics!")
+        return
+
+    # Prepare data
+    timestamps = [h.get('timestamp', datetime.now()) for h in st.session_state.history]
+    violations = [len(h.get('violations', [])) for h in st.session_state.history]
+    detection_times = [h.get('inference_time_ms', 0) for h in st.session_state.history]
+
+    # Violation types count
+    violation_types = defaultdict(int)
+    for h in st.session_state.history:
+        for v in h.get('violations', []):
+            vtype = v.get('type', 'unknown')
+            violation_types[vtype] += 1
+
+    # Row 1: Key Metrics
+    col1, col2, col3, col4 = st.columns(4)
+    with col1:
+        total_analyses = len(st.session_state.history)
+        st.metric("🔍 Total Analyses", total_analyses,
+                 delta=f"+{total_analyses}" if total_analyses > 0 else None)
+    with col2:
+        total_viol = sum(violations)
+        st.metric("⚠️ Total Violations", total_viol,
+                 delta=f"+{total_viol}" if total_viol > 0 else None,
+                 delta_color="inverse")
+    with col3:
+        avg_time = np.mean(detection_times) if detection_times else 0
+        st.metric("⚡ Avg Detection Time", f"{avg_time:.1f}ms")
+    with col4:
+        compliance_rate = ((total_analyses - sum(1 for v in violations if v > 0)) / total_analyses * 100) if total_analyses > 0 else 100
+        st.metric("✅ Compliance Rate", f"{compliance_rate:.1f}%",
+                 delta=f"{compliance_rate-50:.1f}%" if compliance_rate > 50 else None)
+
+    st.markdown("---")
+
+    # Row 2: Charts
+    col_left, col_right = st.columns(2)
+
+    with col_left:
+        # Violation Trend Line Chart
+        st.subheader("📈 Violation Trend Over Time")
+        if len(timestamps) > 1:
+            fig_trend = go.Figure()
+            fig_trend.add_trace(go.Scatter(
+                x=list(range(len(violations))),
+                y=violations,
+                mode='lines+markers',
+                name='Violations',
+                line=dict(color='#f44336', width=3),
+                marker=dict(size=8, color='#d32f2f'),
+                fill='tozeroy',
+                fillcolor='rgba(244, 67, 54, 0.2)'
+            ))
+            fig_trend.update_layout(
+                height=300,
+                margin=dict(l=20, r=20, t=40, b=20),
+                xaxis_title="Analysis #",
+                yaxis_title="Violations",
+                hovermode='x unified',
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(size=12)
+            )
+            st.plotly_chart(fig_trend, width="stretch")
+        else:
+            st.info("Need more data points for trend analysis")
+
+    with col_right:
+        # Violation Types Pie Chart
+        st.subheader("🎯 Violation Types Distribution")
+        if violation_types:
+            labels = [k.replace('_', ' ').title() for k in violation_types.keys()]
+            values = list(violation_types.values())
+
+            fig_pie = go.Figure(data=[go.Pie(
+                labels=labels,
+                values=values,
+                hole=0.4,
+                marker=dict(colors=px.colors.sequential.RdBu),
+                textinfo='label+percent',
+                textfont=dict(size=12)
+            )])
+            fig_pie.update_layout(
+                height=300,
+                margin=dict(l=20, r=20, t=40, b=20),
+                showlegend=True,
+                legend=dict(orientation="v", yanchor="middle", y=0.5, xanchor="left", x=1.02),
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)'
+            )
+            st.plotly_chart(fig_pie, width="stretch")
+        else:
+            st.success("✅ No violations detected!")
+
+    # Row 3: Performance Chart
+    st.subheader("⚡ Detection Performance")
+    col_perf1, col_perf2 = st.columns(2)
+
+    with col_perf1:
+        # Detection Time Bar Chart
+        if detection_times:
+            fig_perf = go.Figure()
+            fig_perf.add_trace(go.Bar(
+                x=list(range(len(detection_times))),
+                y=detection_times,
+                marker=dict(
+                    color=detection_times,
+                    colorscale='Viridis',
+                    showscale=True,
+                    colorbar=dict(title="ms")
+                ),
+                text=[f"{t:.1f}ms" for t in detection_times],
+                textposition='outside'
+            ))
+            fig_perf.update_layout(
+                height=300,
+                margin=dict(l=20, r=20, t=40, b=20),
+                xaxis_title="Analysis #",
+                yaxis_title="Time (ms)",
+                plot_bgcolor='rgba(0,0,0,0)',
+                paper_bgcolor='rgba(0,0,0,0)',
+                font=dict(size=11)
+            )
+            st.plotly_chart(fig_perf, width="stretch")
+
+    with col_perf2:
+        # Compliance Gauge
+        fig_gauge = go.Figure(go.Indicator(
+            mode="gauge+number+delta",
+            value=compliance_rate,
+            domain={'x': [0, 1], 'y': [0, 1]},
+            title={'text': "Compliance Rate", 'font': {'size': 20}},
+            delta={'reference': 80, 'increasing': {'color': "#4caf50"}},
+            gauge={
+                'axis': {'range': [None, 100], 'tickwidth': 1, 'tickcolor': "#00d4ff"},
+                'bar': {'color': "#00d4ff"},
+                'bgcolor': "#1e1e2e" if st.session_state.dark_mode else "white",
+                'borderwidth': 2,
+                'bordercolor': "#00d4ff",
+                'steps': [
+                    {'range': [0, 50], 'color': '#4a1c1c' if st.session_state.dark_mode else '#ffcdd2'},
+                    {'range': [50, 80], 'color': '#2a2a1a' if st.session_state.dark_mode else '#fff9c4'},
+                    {'range': [80, 100], 'color': '#1b2d1b' if st.session_state.dark_mode else '#c8e6c9'}
+                ],
+                'threshold': {
+                    'line': {'color': "#ff6b6b", 'width': 4},
+                    'thickness': 0.75,
+                    'value': 90
+                }
+            }
+        ))
+        fig_gauge.update_layout(
+            height=300,
+            margin=dict(l=20, r=20, t=60, b=20),
+            paper_bgcolor='rgba(0,0,0,0)',
+            font=dict(size=12)
+        )
+        st.plotly_chart(fig_gauge, width="stretch")
+
+
+def show_welcome_screen():
+    """Display welcome screen for first-time users with step-by-step guide."""
+    st.markdown('<h1 class="main-header">🦺 Welcome to SiteGuard AI Pro</h1>', unsafe_allow_html=True)
+    st.markdown('<p style="text-align: center; color: #00d4ff; font-size: 1.3rem; margin-bottom: 2rem;">Your AI-Powered Industrial Safety & Compliance Monitor</p>', unsafe_allow_html=True)
+    
+    # Quick Start Guide
+    st.markdown("""
+    <div class="metric-card" style="margin-bottom: 2rem;">
+        <h2 style="color: #00d4ff; margin-bottom: 1rem;">🚀 Quick Start Guide</h2>
+        <p style="font-size: 1.1rem; line-height: 1.8;">
+            Follow these simple steps to start monitoring workplace safety:
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    # Step-by-step instructions
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        st.markdown("""
+        <div class="stat-box" style="margin-bottom: 1rem;">
+            <h1 style="color: #00d4ff; font-size: 3rem; margin: 0;">1</h1>
+            <h3 style="margin-top: 0.5rem;">Initialize System</h3>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with col2:
+        st.markdown("""
+        <div style="padding: 1.5rem; background: rgba(0,212,255,0.1); border-radius: 8px; border-left: 4px solid #00d4ff; margin-bottom: 1rem;">
+            <h4 style="margin-top: 0; color: #00d4ff;">First, initialize the AI system</h4>
+            <p>Click the <strong>"🚀 Initialize System"</strong> button in the sidebar (left panel) to load the AI detection models.</p>
+            <p style="margin-bottom: 0;"><em>This only needs to be done once when you start the application.</em></p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        st.markdown("""
+        <div class="stat-box" style="margin-bottom: 1rem;">
+            <h1 style="color: #00d4ff; font-size: 3rem; margin: 0;">2</h1>
+            <h3 style="margin-top: 0.5rem;">Choose Analysis Mode</h3>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with col2:
+        st.markdown("""
+        <div style="padding: 1.5rem; background: rgba(0,212,255,0.1); border-radius: 8px; border-left: 4px solid #00d4ff; margin-bottom: 1rem;">
+            <h4 style="margin-top: 0; color: #00d4ff;">Select your preferred analysis method</h4>
+            <ul style="margin-bottom: 0;">
+                <li><strong>📸 Image Analysis</strong> - Upload photos for instant PPE detection</li>
+                <li><strong>🎥 Video Analysis</strong> - Process recorded CCTV footage</li>
+                <li><strong>📹 Live Webcam</strong> - Real-time monitoring with your webcam</li>
+                <li><strong>🔍 RTSP Cameras</strong> - Connect to IP/ONVIF cameras</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        st.markdown("""
+        <div class="stat-box" style="margin-bottom: 1rem;">
+            <h1 style="color: #00d4ff; font-size: 3rem; margin: 0;">3</h1>
+            <h3 style="margin-top: 0.5rem;">Analyze & Review</h3>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with col2:
+        st.markdown("""
+        <div style="padding: 1.5rem; background: rgba(0,212,255,0.1); border-radius: 8px; border-left: 4px solid #00d4ff; margin-bottom: 1rem;">
+            <h4 style="margin-top: 0; color: #00d4ff;">Get instant safety insights</h4>
+            <p>The AI will automatically detect:</p>
+            <ul>
+                <li>✅ Workers wearing proper PPE (helmets, vests, etc.)</li>
+                <li>⚠️ Safety violations and missing equipment</li>
+                <li>📊 Compliance statistics and trends</li>
+            </ul>
+            <p style="margin-bottom: 0;"><em>Generate OSHA-compliant reports with one click!</em></p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    col1, col2 = st.columns([1, 2])
+    
+    with col1:
+        st.markdown("""
+        <div class="stat-box" style="margin-bottom: 2rem;">
+            <h1 style="color: #00d4ff; font-size: 3rem; margin: 0;">4</h1>
+            <h3 style="margin-top: 0.5rem;">View Analytics</h3>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with col2:
+        st.markdown("""
+        <div style="padding: 1.5rem; background: rgba(0,212,255,0.1); border-radius: 8px; border-left: 4px solid #00d4ff; margin-bottom: 2rem;">
+            <h4 style="margin-top: 0; color: #00d4ff;">Track safety performance over time</h4>
+            <p>Visit the <strong>📊 Analytics Dashboard</strong> tab to see:</p>
+            <ul style="margin-bottom: 0;">
+                <li>📈 Violation trends and patterns</li>
+                <li>🎯 Compliance rates and statistics</li>
+                <li>⚡ System performance metrics</li>
+            </ul>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Features Overview
+    st.markdown("---")
+    st.markdown("""
+    <div class="metric-card">
+        <h2 style="color: #00d4ff; margin-bottom: 1rem;">✨ Key Features</h2>
+    </div>
+    """, unsafe_allow_html=True)
+    
+    col_f1, col_f2, col_f3 = st.columns(3)
+    
+    with col_f1:
+        st.markdown("""
+        <div class="stat-box" style="height: 200px;">
+            <h2 style="font-size: 2.5rem; margin: 0;">🤖</h2>
+            <h4 style="color: #00d4ff;">AI-Powered Detection</h4>
+            <p style="font-size: 0.9rem;">Advanced YOLO model detects PPE violations with high accuracy</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with col_f2:
+        st.markdown("""
+        <div class="stat-box" style="height: 200px;">
+            <h2 style="font-size: 2.5rem; margin: 0;">📄</h2>
+            <h4 style="color: #00d4ff;">OSHA Reports</h4>
+            <p style="font-size: 0.9rem;">Generate professional compliance reports automatically</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with col_f3:
+        st.markdown("""
+        <div class="stat-box" style="height: 200px;">
+            <h2 style="font-size: 2.5rem; margin: 0;">🎥</h2>
+            <h4 style="color: #00d4ff;">Real-Time Monitoring</h4>
+            <p style="font-size: 0.9rem;">Live webcam and RTSP camera support for continuous surveillance</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    st.markdown("<br>", unsafe_allow_html=True)
+    
+    col_f4, col_f5, col_f6 = st.columns(3)
+    
+    with col_f4:
+        st.markdown("""
+        <div class="stat-box" style="height: 200px;">
+            <h2 style="font-size: 2.5rem; margin: 0;">📊</h2>
+            <h4 style="color: #00d4ff;">Analytics Dashboard</h4>
+            <p style="font-size: 0.9rem;">Track trends, compliance rates, and performance metrics</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with col_f5:
+        st.markdown("""
+        <div class="stat-box" style="height: 200px;">
+            <h2 style="font-size: 2.5rem; margin: 0;">📱</h2>
+            <h4 style="color: #00d4ff;">Telegram Alerts</h4>
+            <p style="font-size: 0.9rem;">Instant notifications when violations are detected</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+    with col_f6:
+        st.markdown("""
+        <div class="stat-box" style="height: 200px;">
+            <h2 style="font-size: 2.5rem; margin: 0;">🌙</h2>
+            <h4 style="color: #00d4ff;">Dark Mode</h4>
+            <p style="font-size: 0.9rem;">Professional dark theme for comfortable viewing</p>
+        </div>
+        """, unsafe_allow_html=True)
+    
+    # Call to action
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    
+    col_cta1, col_cta2, col_cta3 = st.columns([1, 2, 1])
+    
+    with col_cta2:
+        if st.button("🚀 Get Started - Initialize System Now", type="primary", use_container_width=True):
+            st.session_state.show_welcome = False
+            st.rerun()
+        
+        st.markdown("<br>", unsafe_allow_html=True)
+        
+        if st.button("📖 Skip Welcome - Go to Dashboard", use_container_width=True):
+            st.session_state.show_welcome = False
+            st.rerun()
+    
+    # Tips section
+    st.markdown("---")
+    st.markdown("""
+    <div style="padding: 1.5rem; background: rgba(0,212,255,0.05); border-radius: 8px; border: 1px solid rgba(0,212,255,0.3);">
+        <h3 style="color: #00d4ff; margin-top: 0;">💡 Pro Tips</h3>
+        <ul>
+            <li><strong>Best Image Quality:</strong> Use clear, well-lit photos for accurate detection</li>
+            <li><strong>Video Processing:</strong> Skip frames (process every 5-10 frames) for faster analysis</li>
+            <li><strong>Real-Time Mode:</strong> Adjust FPS and confidence thresholds for optimal performance</li>
+            <li><strong>Reports:</strong> Configure LLM provider in sidebar for automatic report generation</li>
+            <li><strong>Notifications:</strong> Set up Telegram bot in config.yaml for instant alerts</li>
+        </ul>
+    </div>
+    """, unsafe_allow_html=True)
 
 
 def create_analytics_charts():
@@ -1976,6 +2351,11 @@ def main():
     # Load configuration
     config = load_config()
 
+    # Show welcome screen for first-time users or if system not initialized
+    if st.session_state.show_welcome or not st.session_state.system_initialized:
+        show_welcome_screen()
+        return
+
     # Header
     st.markdown('<h1 class="main-header">🦺 SiteGuard AI Pro</h1>', unsafe_allow_html=True)
     st.markdown(f'<p style="text-align: center; color: {"#999" if st.session_state.dark_mode else "#666"}; font-size: 1.1rem;">Advanced Industrial Safety & Compliance Monitor</p>', unsafe_allow_html=True)
@@ -1983,10 +2363,39 @@ def main():
     # Apply theme
     st.markdown(get_custom_css(st.session_state.dark_mode), unsafe_allow_html=True)
 
+    # System status indicator at the top
+    if not st.session_state.system_initialized:
+        st.warning("⚠️ System not initialized. Please click '🚀 Initialize System' in the sidebar to start.")
+    else:
+        st.success("✅ System Ready - AI models loaded and operational")
+
     # Sidebar configuration
     with st.sidebar:
         st.image("https://via.placeholder.com/200x80/1f77b4/FFFFFF?text=SiteGuard+AI", width="stretch")
         st.header("⚙️ Configuration")
+
+        # Initialize button - prominent placement
+        st.markdown("### 🚀 System Control")
+        if not st.session_state.system_initialized:
+            st.markdown("""
+            <div style="padding: 1rem; background: rgba(255,193,7,0.1); border-radius: 8px; border-left: 4px solid #ffc107; margin-bottom: 1rem;">
+                <p style="margin: 0; font-weight: bold; color: #ffc107;">⚠️ Action Required</p>
+                <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem;">Initialize the system to start using SiteGuard AI</p>
+            </div>
+            """, unsafe_allow_html=True)
+            
+        if st.button("🚀 Initialize System", type="primary", disabled=st.session_state.system_initialized):
+            load_models(config)
+        
+        if st.session_state.system_initialized:
+            st.success("✅ System Initialized")
+            
+        # Show welcome screen button
+        if st.button("📖 Show Welcome Guide"):
+            st.session_state.show_welcome = True
+            st.rerun()
+
+        st.markdown("---")
 
         # Model settings
         st.subheader("🎯 Detection Settings")
@@ -1996,7 +2405,7 @@ def main():
             max_value=0.9,
             value=0.5,
             step=0.05,
-            help="Minimum confidence score for detections"
+            help="Minimum confidence score for detections (higher = fewer false positives)"
         )
 
         # LLM settings
@@ -2004,41 +2413,37 @@ def main():
         st.session_state.llm_provider = st.selectbox(
             "LLM Provider",
             ["ollama", "openai", "gemini"],
-            help="Select the LLM provider"
+            help="Select the LLM provider for report generation"
         )
 
         if st.session_state.llm_provider == "ollama":
             st.session_state.llm_model = st.selectbox(
                 "Ollama Model",
                 ["llama3", "llama3.1", "llama3.2", "mistral", "phi3", "gemma2"],
-                help="Select Ollama model"
+                help="Select Ollama model for report generation"
             )
 
         st.session_state.report_format = st.selectbox(
             "Report Format",
             ["formal", "technical", "executive", "email"],
-            help="Select report format"
+            help="Select the format style for generated reports"
         )
 
         # Metadata
         st.subheader("📍 Site Information")
         st.session_state.location = st.text_input(
             "Location/Site Name",
-            value="Construction Site A"
+            value="Construction Site A",
+            help="Enter the site or location name for reports"
         )
 
-        st.session_state.site_id = st.text_input("Site ID (Optional)", value="")
-        st.session_state.inspector_id = st.text_input("Inspector ID (Optional)", value="")
+        st.session_state.site_id = st.text_input("Site ID (Optional)", value="", help="Optional site identifier")
+        st.session_state.inspector_id = st.text_input("Inspector ID (Optional)", value="", help="Optional inspector identifier")
 
         st.markdown("---")
 
-        # Initialize button
-        if st.button("🚀 Initialize System", type="primary"):
-            load_models(config)
-
         # System stats
         if st.session_state.detector:
-            st.markdown("---")
             st.markdown("### 📊 System Stats")
             metrics = st.session_state.detector.get_metrics()
             st.metric("Total Analyses", len(st.session_state.history))
@@ -2048,18 +2453,40 @@ def main():
                 st.session_state.history = []
                 st.rerun()
 
-    # Main tabs
+    # Main tabs with better descriptions
+    st.markdown("""
+    <div style="padding: 1rem; background: rgba(0,212,255,0.05); border-radius: 8px; border: 1px solid rgba(0,212,255,0.2); margin-bottom: 1rem;">
+        <h3 style="margin: 0 0 0.5rem 0; color: #00d4ff;">📋 Choose Your Analysis Mode</h3>
+        <p style="margin: 0; font-size: 0.95rem;">Select a tab below based on your monitoring needs:</p>
+    </div>
+    """, unsafe_allow_html=True)
+    
     tab1, tab2, tab3, tab4, tab5 = st.tabs([
-        "📸 Image Analysis",
-        "🎥 Video Analysis",
-        "📹 Live Webcam",
-        "🔍 RTSP Cameras",
-        "📊 Analytics Dashboard"
+        "📸 1. Image Analysis",
+        "🎥 2. Video Analysis",
+        "📹 3. Live Webcam",
+        "🔍 4. RTSP Cameras",
+        "📊 5. Analytics Dashboard"
     ])
 
     with tab1:
         # Original image upload functionality
         st.header("📸 Image Upload & Analysis")
+        
+        # Help text for this tab
+        st.markdown("""
+        <div style="padding: 1rem; background: rgba(0,212,255,0.05); border-radius: 8px; border-left: 4px solid #00d4ff; margin-bottom: 1.5rem;">
+            <h4 style="margin: 0 0 0.5rem 0; color: #00d4ff;">📖 How to Use Image Analysis</h4>
+            <p style="margin: 0; font-size: 0.95rem;">
+                <strong>Step 1:</strong> Upload a photo (JPG/PNG) using the file uploader below<br>
+                <strong>Step 2:</strong> Click "🔍 Analyze Image" to detect PPE violations<br>
+                <strong>Step 3:</strong> Review results and generate OSHA reports if violations are found
+            </p>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; opacity: 0.8;">
+                💡 <em>Best for: Quick checks, incident documentation, compliance audits</em>
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 
         uploaded_file = st.file_uploader(
             "Upload CCTV snapshot or workplace photo",
@@ -2261,6 +2688,22 @@ def main():
 
     with tab2:
         st.header("🎥 Video Analysis")
+        
+        # Help text for this tab
+        st.markdown("""
+        <div style="padding: 1rem; background: rgba(0,212,255,0.05); border-radius: 8px; border-left: 4px solid #00d4ff; margin-bottom: 1.5rem;">
+            <h4 style="margin: 0 0 0.5rem 0; color: #00d4ff;">📖 How to Use Video Analysis</h4>
+            <p style="margin: 0; font-size: 0.95rem;">
+                <strong>Step 1:</strong> Upload a video file (MP4/AVI/MOV/MKV)<br>
+                <strong>Step 2:</strong> Adjust frame skip and confidence settings<br>
+                <strong>Step 3:</strong> Click "🚀 Process Video" to analyze all frames<br>
+                <strong>Step 4:</strong> Download annotated video with detected violations
+            </p>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; opacity: 0.8;">
+                💡 <em>Best for: CCTV footage review, incident investigation, batch processing</em>
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
 
         st.markdown("""
         <div class="metric-card">
@@ -2514,9 +2957,45 @@ def main():
                 st.metric("Violations", results.get('violation_count', 0))
 
     with tab3:
+        st.header("📹 Live Webcam Detection")
+        
+        # Help text for this tab
+        st.markdown("""
+        <div style="padding: 1rem; background: rgba(0,212,255,0.05); border-radius: 8px; border-left: 4px solid #00d4ff; margin-bottom: 1.5rem;">
+            <h4 style="margin: 0 0 0.5rem 0; color: #00d4ff;">📖 How to Use Live Webcam</h4>
+            <p style="margin: 0; font-size: 0.95rem;">
+                <strong>Step 1:</strong> Select your webcam device from the dropdown<br>
+                <strong>Step 2:</strong> Adjust FPS and confidence threshold settings<br>
+                <strong>Step 3:</strong> Check "🎬 Start Webcam Stream" to begin real-time monitoring<br>
+                <strong>Step 4:</strong> Watch live detection results and statistics
+            </p>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; opacity: 0.8;">
+                💡 <em>Best for: Real-time monitoring, live demonstrations, continuous surveillance</em>
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
         webcam_detection_page()
 
     with tab4:
+        st.header("🔍 RTSP/ONVIF Camera Monitoring")
+        
+        # Help text for this tab
+        st.markdown("""
+        <div style="padding: 1rem; background: rgba(0,212,255,0.05); border-radius: 8px; border-left: 4px solid #00d4ff; margin-bottom: 1.5rem;">
+            <h4 style="margin: 0 0 0.5rem 0; color: #00d4ff;">📖 How to Use RTSP Cameras</h4>
+            <p style="margin: 0; font-size: 0.95rem;">
+                <strong>Step 1:</strong> Click "🔍 Discover ONVIF Cameras" to find IP cameras on your network<br>
+                <strong>Step 2:</strong> Enter camera credentials (username/password)<br>
+                <strong>Step 3:</strong> Add cameras to your monitoring list<br>
+                <strong>Step 4:</strong> Select a camera and start real-time stream processing
+            </p>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; opacity: 0.8;">
+                💡 <em>Best for: Professional CCTV systems, IP cameras, enterprise monitoring</em>
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
         onvif_detection_page()
 
         col_vid1, col_vid2 = st.columns([2, 1])
@@ -2818,6 +3297,27 @@ def main():
                 st.markdown('</div>', unsafe_allow_html=True)
 
     with tab5:
+        st.header("📊 Analytics Dashboard")
+        
+        # Help text for this tab
+        st.markdown("""
+        <div style="padding: 1rem; background: rgba(0,212,255,0.05); border-radius: 8px; border-left: 4px solid #00d4ff; margin-bottom: 1.5rem;">
+            <h4 style="margin: 0 0 0.5rem 0; color: #00d4ff;">📖 Understanding Analytics</h4>
+            <p style="margin: 0; font-size: 0.95rem;">
+                View comprehensive statistics and trends from all your analyses:
+            </p>
+            <ul style="margin: 0.5rem 0 0 0; font-size: 0.95rem;">
+                <li><strong>Violation Trends:</strong> Track safety violations over time</li>
+                <li><strong>Compliance Rate:</strong> Monitor overall workplace safety compliance</li>
+                <li><strong>Performance Metrics:</strong> System speed and detection accuracy</li>
+                <li><strong>Violation Types:</strong> Distribution of different safety violations</li>
+            </ul>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; opacity: 0.8;">
+                💡 <em>Analytics update automatically as you perform more analyses</em>
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
         create_analytics_charts()
 
     # Report section (if generated)
