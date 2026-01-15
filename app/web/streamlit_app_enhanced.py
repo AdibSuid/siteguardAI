@@ -842,6 +842,34 @@ def get_custom_css(dark_mode=False):
         border-color: #33e0ff !important;
         box-shadow: 0 0 8px rgba(0,212,255,0.3) !important;
     }
+    /* Enhanced Stream Button Styling */
+    button[key="start_webcam"], button[key="stop_webcam"], button[key="start_onvif"], button[key="stop_onvif"] {
+        font-size: 1.4rem !important;
+        padding: 1.8rem 3rem !important;
+        font-weight: 900 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1.5px !important;
+        min-height: 70px !important;
+        border-radius: 15px !important;
+        box-shadow: 0 8px 32px rgba(0,102,204,0.5) !important;
+        transition: all 0.3s ease !important;
+        margin: 1rem auto !important;
+        display: block !important;
+        width: 80% !important;
+        max-width: 500px !important;
+    }
+    button[key="start_webcam"]:hover, button[key="start_onvif"]:hover {
+        transform: translateY(-4px) scale(1.03) !important;
+        box-shadow: 0 12px 40px rgba(0,102,204,0.7) !important;
+    }
+    button[key="stop_webcam"], button[key="stop_onvif"] {
+        background: linear-gradient(135deg, #cc0000 0%, #aa0000 50%, #880000 100%) !important;
+    }
+    button[key="stop_webcam"]:hover, button[key="stop_onvif"]:hover {
+        background: linear-gradient(135deg, #aa0000 0%, #880000 50%, #660000 100%) !important;
+        transform: translateY(-4px) scale(1.03) !important;
+        box-shadow: 0 12px 40px rgba(170,0,0,0.7) !important;
+    }
 </style>
 """
     else:
@@ -1010,6 +1038,34 @@ def get_custom_css(dark_mode=False):
     }
     .stDataFrame > div {
         border-radius: 10px;
+    }
+    /* Enhanced Stream Button Styling */
+    button[key="start_webcam"], button[key="stop_webcam"], button[key="start_onvif"], button[key="stop_onvif"] {
+        font-size: 1.4rem !important;
+        padding: 1.8rem 3rem !important;
+        font-weight: 900 !important;
+        text-transform: uppercase !important;
+        letter-spacing: 1.5px !important;
+        min-height: 70px !important;
+        border-radius: 15px !important;
+        box-shadow: 0 8px 32px rgba(0,102,204,0.4) !important;
+        transition: all 0.3s ease !important;
+        margin: 1rem auto !important;
+        display: block !important;
+        width: 80% !important;
+        max-width: 500px !important;
+    }
+    button[key="start_webcam"]:hover, button[key="start_onvif"]:hover {
+        transform: translateY(-4px) scale(1.03) !important;
+        box-shadow: 0 12px 40px rgba(0,102,204,0.6) !important;
+    }
+    button[key="stop_webcam"], button[key="stop_onvif"] {
+        background: linear-gradient(135deg, #cc0000 0%, #aa0000 50%, #880000 100%) !important;
+    }
+    button[key="stop_webcam"]:hover, button[key="stop_onvif"]:hover {
+        background: linear-gradient(135deg, #aa0000 0%, #880000 50%, #660000 100%) !important;
+        transform: translateY(-4px) scale(1.03) !important;
+        box-shadow: 0 12px 40px rgba(170,0,0,0.6) !important;
     }
 </style>
 """
@@ -1645,6 +1701,21 @@ def webcam_detection_page():
     """Live webcam detection page with true real-time video processing."""
     st.header("📹 Webcam Detection")
 
+    # Important deployment note
+    st.markdown("""
+    <div style="padding: 1rem; background: rgba(255,193,7,0.1); border-radius: 8px; border-left: 4px solid #ffc107; margin-bottom: 1.5rem;">
+        <h4 style="margin: 0 0 0.5rem 0; color: #ffc107;">⚠️ Local Deployment Only</h4>
+        <p style="margin: 0; font-size: 0.95rem;">
+            <strong>Important:</strong> Live webcam streaming only works with local deployment (localhost). 
+            This feature is <strong>not compatible</strong> when accessing the app via Streamlit public URL 
+            or cloud deployment due to browser security restrictions for camera access.
+        </p>
+        <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; opacity: 0.8;">
+            💡 <em>For production use, consider Tab 4 (RTSP Cameras) with IP cameras instead.</em>
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
     st.markdown("""
     <div class="metric-card">
     <h3>🎥 Real-Time Webcam Processing</h3>
@@ -1656,11 +1727,37 @@ def webcam_detection_page():
     col_control, col_status = st.columns([1, 2])
 
     with col_control:
-        stream_active = st.checkbox("🎬 Start Webcam Stream", value=False, key="webcam_stream")
-        if stream_active:
-            st.success("🔴 LIVE - Real-Time Processing")
+        # Improved stream control section
+        st.markdown("### 🎬 Stream Control")
+        
+        # Large, prominent start/stop button
+        if 'webcam_stream_active' not in st.session_state:
+            st.session_state.webcam_stream_active = False
+            
+        # Create a more prominent button layout
+        st.markdown("<div style='text-align: center; margin: 2rem 0;'>", unsafe_allow_html=True)
+        
+        if not st.session_state.webcam_stream_active:
+            if st.button("🎬 START WEBCAM STREAM", type="primary", use_container_width=True, key="start_webcam"):
+                st.session_state.webcam_stream_active = True
+                st.session_state.webcam_stream = True
+                st.rerun()
         else:
-            st.info("⏸️ STOPPED")
+            if st.button("⏹️ STOP WEBCAM STREAM", type="secondary", use_container_width=True, key="stop_webcam"):
+                st.session_state.webcam_stream_active = False
+                st.session_state.webcam_stream = False
+                st.rerun()
+        
+        # Status display below button
+        if st.session_state.webcam_stream_active:
+            st.success("🔴 **STREAM STATUS: LIVE**")
+        else:
+            st.info("⏸️ **STREAM STATUS: STOPPED**")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        # Status display
+        stream_active = st.session_state.get('webcam_stream_active', False)
 
         # Stream settings
         st.markdown("### ⚙️ Stream Settings")
@@ -1958,6 +2055,21 @@ def onvif_detection_page():
     """ONVIF camera discovery and management page."""
     st.header("🔍 ONVIF Camera Management")
 
+    # Important deployment note
+    st.markdown("""
+    <div style="padding: 1rem; background: rgba(255,193,7,0.1); border-radius: 8px; border-left: 4px solid #ffc107; margin-bottom: 1.5rem;">
+        <h4 style="margin: 0 0 0.5rem 0; color: #ffc107;">⚠️ Local Deployment Only</h4>
+        <p style="margin: 0; font-size: 0.95rem;">
+            <strong>Important:</strong> RTSP camera streaming only works with local deployment (localhost). 
+            This feature is <strong>not compatible</strong> when accessing the app via Streamlit public URL 
+            or cloud deployment due to network access restrictions and firewall limitations.
+        </p>
+        <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; opacity: 0.8;">
+            💡 <em>For cloud deployment, use Tab 1 (Image Analysis) or Tab 2 (Video Analysis) instead.</em>
+        </p>
+    </div>
+    """, unsafe_allow_html=True)
+
     st.markdown("""
     <div class="metric-card">
     <h3>🌐 Network Camera Discovery</h3>
@@ -1975,11 +2087,37 @@ def onvif_detection_page():
     col_control, col_status = st.columns([1, 2])
 
     with col_control:
-        stream_active = st.checkbox("🎬 Start Camera Stream", value=False, key="onvif_stream")
-        if stream_active:
-            st.success("🔴 LIVE - Real-Time Processing")
+        # Improved stream control section
+        st.markdown("### 🎬 Stream Control")
+        
+        # Large, prominent start/stop button
+        if 'onvif_stream_active' not in st.session_state:
+            st.session_state.onvif_stream_active = False
+            
+        # Create a more prominent button layout
+        st.markdown("<div style='text-align: center; margin: 2rem 0;'>", unsafe_allow_html=True)
+        
+        if not st.session_state.onvif_stream_active:
+            if st.button("🎬 START CAMERA STREAM", type="primary", use_container_width=True, key="start_onvif"):
+                st.session_state.onvif_stream_active = True
+                st.session_state.onvif_stream = True
+                st.rerun()
         else:
-            st.info("⏸️ STOPPED")
+            if st.button("⏹️ STOP CAMERA STREAM", type="secondary", use_container_width=True, key="stop_onvif"):
+                st.session_state.onvif_stream_active = False
+                st.session_state.onvif_stream = False
+                st.rerun()
+        
+        # Status display below button
+        if st.session_state.onvif_stream_active:
+            st.success("🔴 **STREAM STATUS: LIVE**")
+        else:
+            st.info("⏸️ **STREAM STATUS: STOPPED**")
+        
+        st.markdown("</div>", unsafe_allow_html=True)
+        
+        # Status display
+        stream_active = st.session_state.get('onvif_stream_active', False)
 
         # Stream settings
         st.markdown("### ⚙️ Stream Settings")
@@ -2219,14 +2357,12 @@ def onvif_detection_page():
 
                                 # Update live stats
                                 live_detections.metric("👤 Detections", len(filtered_detections))
-                                live_violations.metric("⚠️ Violations",
-                                                     len([d for d in filtered_detections if not d.compliant]))
+                                live_violations.metric("⚠️ Violations", results.violation_count)
                                 live_fps.metric("🎯 FPS", f"{1.0 / (time.time() - frame_start):.1f}")
 
                                 # Show violations in live status
-                                violations = [d for d in filtered_detections if not d.compliant]
-                                if violations:
-                                    live_status.error(f"🚨 {len(violations)} violations detected!")
+                                if results.has_violations:
+                                    live_status.error(f"🚨 {results.violation_count} violations detected!")
                                 else:
                                     live_status.success("✅ All personnel compliant")
 
@@ -2267,7 +2403,7 @@ def onvif_detection_page():
                         st.session_state.onvif_stats = {
                             'frames_processed': frame_count,
                             'total_detections': sum(len(r.detections) for r in [st.session_state.results] if r),
-                            'total_violations': sum(len([d for d in r.detections if not d.compliant]) for r in [st.session_state.results] if r),
+                            'total_violations': sum(r.violation_count for r in [st.session_state.results] if r),
                             'avg_fps': avg_fps
                         }
 
@@ -2813,20 +2949,30 @@ def main():
                                         if d.confidence >= confidence_threshold
                                     ]
 
-                                    # Check for violations
+                                    # Check for violations from DetectionResult
                                     violations = []
-                                    for detection in filtered_detections:
-                                        if not detection.compliant:
-                                            violations.append({
-                                                'type': detection.class_name,
-                                                'bbox': detection.bbox,
-                                                'confidence': detection.confidence,
-                                                'frame': frame_count,
-                                                'timestamp': f"{frame_count/fps:.2f}s"
-                                            })
+                                    for violation in results.violations:
+                                        violations.append({
+                                            'type': violation.get('type', 'unknown'),
+                                            'description': violation.get('description', ''),
+                                            'severity': violation.get('severity', 'medium'),
+                                            'confidence': violation.get('confidence', 0.95),
+                                            'frame': frame_count,
+                                            'timestamp': f"{frame_count/fps:.2f}s",
+                                            'osha_standard': violation.get('osha_standard', '')
+                                        })
 
                                     # Store violations
                                     all_violations.extend(violations)
+
+                                    # Store violation frames
+                                    if violations:
+                                        violation_frames.append({
+                                            'frame_num': frame_count,
+                                            'timestamp': f"{frame_count/fps:.2f}s",
+                                            'image': results.annotated_image if results.annotated_image is not None else frame,
+                                            'violation_count': len(violations)
+                                        })
 
                                     # Create annotated frame
                                     if results.annotated_image is not None:
@@ -2851,15 +2997,25 @@ def main():
                             cap.release()
                             out.release()
 
+                            # Read annotated video for display
+                            with open(output_path, 'rb') as f:
+                                annotated_video_bytes = f.read()
+
                             # Store results
                             video_results = {
                                 'total_frames': total_frames,
-                                'frames_processed': frames_processed,
+                                'processed_frames': frames_processed,
+                                'violation_frames': violation_frames,
                                 'all_violations': all_violations,
                                 'violation_count': len(all_violations),
-                                'output_path': output_path
+                                'fps': fps,
+                                'annotated_video': annotated_video_bytes
                             }
                             st.session_state.video_results = video_results
+
+                            # Clean up temp files
+                            os.unlink(video_path)
+                            os.unlink(output_path)
 
                         st.success("✅ Video processing completed!")
 
@@ -2870,23 +3026,21 @@ def main():
                         with col_res1:
                             st.metric("🎬 Total Frames", video_results['total_frames'])
                         with col_res2:
-                            st.metric("🔄 Frames Processed", video_results['frames_processed'])
+                            st.metric("🔄 Frames Processed", video_results['processed_frames'])
                         with col_res3:
                             st.metric("⚠️ Violations Found", video_results['violation_count'])
 
                         # Show annotated video
-                        if os.path.exists(output_path):
-                            st.markdown("### 🎥 Annotated Video")
-                            st.video(output_path)
+                        st.markdown("### 🎥 Annotated Video")
+                        st.video(video_results['annotated_video'])
 
-                            # Download button
-                            with open(output_path, 'rb') as f:
-                                st.download_button(
-                                    label="📥 Download Annotated Video",
-                                    data=f,
-                                    file_name=f"{uploaded_video.name.replace('.mp4', '_annotated.mp4')}",
-                                    mime="video/mp4"
-                                )
+                        # Download button
+                        st.download_button(
+                            label="📥 Download Annotated Video",
+                            data=video_results['annotated_video'],
+                            file_name=f"{uploaded_video.name.replace('.mp4', '_annotated.mp4')}",
+                            mime="video/mp4"
+                        )
 
                         # Violation details
                         if video_results['violation_count'] > 0:
@@ -2969,11 +3123,12 @@ def main():
             <p style="margin: 0; font-size: 0.95rem;">
                 <strong>Step 1:</strong> Select your webcam device from the dropdown<br>
                 <strong>Step 2:</strong> Adjust FPS and confidence threshold settings<br>
-                <strong>Step 3:</strong> Check "🎬 Start Webcam Stream" to begin real-time monitoring<br>
+                <strong>Step 3:</strong> Click "🎬 START WEBCAM STREAM" to begin real-time monitoring<br>
                 <strong>Step 4:</strong> Watch live detection results and statistics
             </p>
             <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; opacity: 0.8;">
-                💡 <em>Best for: Real-time monitoring, live demonstrations, continuous surveillance</em>
+                💡 <em>Best for: Real-time monitoring, live demonstrations, continuous surveillance</em><br>
+                ⚠️ <em><strong>Local deployment only</strong> - not compatible with public/cloud URLs</em>
             </p>
         </div>
         """, unsafe_allow_html=True)
@@ -2991,10 +3146,11 @@ def main():
                 <strong>Step 1:</strong> Click "🔍 Discover ONVIF Cameras" to find IP cameras on your network<br>
                 <strong>Step 2:</strong> Enter camera credentials (username/password)<br>
                 <strong>Step 3:</strong> Add cameras to your monitoring list<br>
-                <strong>Step 4:</strong> Select a camera and start real-time stream processing
+                <strong>Step 4:</strong> Select a camera and click "🎬 START CAMERA STREAM"
             </p>
             <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem; opacity: 0.8;">
-                💡 <em>Best for: Professional CCTV systems, IP cameras, enterprise monitoring</em>
+                💡 <em>Best for: Professional CCTV systems, IP cameras, enterprise monitoring</em><br>
+                ⚠️ <em><strong>Local deployment only</strong> - not compatible with public/cloud URLs</em>
             </p>
         </div>
         """, unsafe_allow_html=True)
