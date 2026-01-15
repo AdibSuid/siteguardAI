@@ -114,7 +114,8 @@ class ONVIFDiscovery:
 
             # Extract XAddrs (camera URLs)
             namespaces = {
-                'soap': 'http://www.w3.org/2003/05/soap-envelope',
+                's': 'http://www.w3.org/2003/05/soap-envelope',
+                'a': 'http://schemas.xmlsoap.org/ws/2004/08/addressing',
                 'd': 'http://schemas.xmlsoap.org/ws/2005/04/discovery'
             }
 

@@ -33,6 +33,33 @@ from app.core.vision.rtsp_onvif import RTSPCamera, ONVIFDiscovery
 from utils.config import load_config
 from loguru import logger
 
+# Environment detection
+def is_cloud_environment():
+    """Detect if running in a cloud environment (Streamlit Cloud, etc.)"""
+    import os
+    # Check for Streamlit Cloud environment variables
+    cloud_indicators = [
+        'STREAMLIT_SERVER_HEADLESS',  # Streamlit Cloud
+        'STREAMLIT_SERVER_ADDRESS',   # May indicate cloud
+        os.getenv('STREAMLIT_RUNTIME'),  # Streamlit runtime
+    ]
+    
+    # Check if any cloud indicators are present
+    for indicator in cloud_indicators:
+        if indicator and (os.getenv(indicator) or indicator == 'true'):
+            return True
+    
+    # Check if running on streamlit.io domain (if accessible)
+    try:
+        import socket
+        hostname = socket.gethostname()
+        if 'streamlit' in hostname.lower():
+            return True
+    except:
+        pass
+    
+    return False
+
 print("✅ Imports completed successfully")
 
 
@@ -1701,6 +1728,57 @@ def webcam_detection_page():
     """Live webcam detection page with true real-time video processing."""
     st.header("📹 Webcam Detection")
 
+    # Check if running in cloud environment
+    if is_cloud_environment():
+        st.error("🚫 **Webcam Not Available in Cloud Environment**")
+        st.markdown("""
+        <div style="padding: 1rem; background: rgba(220,53,69,0.1); border-radius: 8px; border-left: 4px solid #dc3545; margin-bottom: 1.5rem;">
+            <h4 style="margin: 0 0 0.5rem 0; color: #dc3545;">🌐 Cloud Deployment Limitation</h4>
+            <p style="margin: 0; font-size: 0.95rem;">
+                <strong>Live webcam streaming is not supported</strong> when running on Streamlit Cloud or other cloud platforms.
+                This is due to browser security restrictions that prevent camera access from remote servers.
+            </p>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem;">
+                💡 <em><strong>Recommended alternatives:</strong></em><br>
+                • Use <strong>Tab 1 (Image Analysis)</strong> for uploaded photos<br>
+                • Use <strong>Tab 2 (Video Analysis)</strong> for uploaded videos<br>
+                • Use <strong>Tab 4 (RTSP Cameras)</strong> for IP camera networks<br>
+                • <strong>Deploy locally</strong> for full webcam functionality
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Show deployment options
+        st.markdown("### 🚀 Deployment Options")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("""
+            **🖥️ Local Deployment** (Full Features)
+            ```bash
+            # Run locally for webcam access
+            streamlit run app/web/streamlit_app_enhanced.py
+            ```
+            ✅ Webcam streaming<br>
+            ✅ RTSP cameras<br>
+            ✅ Full functionality
+            """)
+        
+        with col2:
+            st.markdown("""
+            **☁️ Cloud Deployment** (Limited Features)
+            ```bash
+            # Current deployment
+            # Webcam features disabled
+            ```
+            ✅ Image analysis<br>
+            ✅ Video analysis<br>
+            ❌ Webcam streaming<br>
+            ❌ RTSP cameras
+            """)
+        
+        return
+
     # Important deployment note
     st.markdown("""
     <div style="padding: 1rem; background: rgba(255,193,7,0.1); border-radius: 8px; border-left: 4px solid #ffc107; margin-bottom: 1.5rem;">
@@ -1769,13 +1847,18 @@ def webcam_detection_page():
         # Webcam selection
         st.markdown("### 📹 Webcam Device")
 
-        # Simple webcam detection
+        # Simple webcam detection with error handling
         camera_devices = []
         for i in range(5):  # Check first 5 camera indices
-            cap = cv2.VideoCapture(i)
-            if cap is not None and hasattr(cap, 'isOpened') and cap.isOpened():
-                camera_devices.append(f"Camera {i}")
-                cap.release()
+            try:
+                cap = cv2.VideoCapture(i)
+                if cap is not None and hasattr(cap, 'isOpened') and cap.isOpened():
+                    camera_devices.append(f"Camera {i}")
+                    cap.release()
+            except Exception as e:
+                # Silently ignore camera access errors in cloud environments
+                logger.debug(f"Camera {i} not available: {e}")
+                continue
 
         camera_source = None
         selected_camera = None  # Initialize to avoid UnboundLocalError
@@ -2054,6 +2137,58 @@ def webcam_detection_page():
 def onvif_detection_page():
     """ONVIF camera discovery and management page."""
     st.header("🔍 ONVIF Camera Management")
+
+    # Check if running in cloud environment
+    if is_cloud_environment():
+        st.error("🚫 **RTSP Camera Access Not Available in Cloud Environment**")
+        st.markdown("""
+        <div style="padding: 1rem; background: rgba(220,53,69,0.1); border-radius: 8px; border-left: 4px solid #dc3545; margin-bottom: 1.5rem;">
+            <h4 style="margin: 0 0 0.5rem 0; color: #dc3545;">🌐 Cloud Deployment Limitation</h4>
+            <p style="margin: 0; font-size: 0.95rem;">
+                <strong>RTSP camera streaming is not supported</strong> when running on Streamlit Cloud or other cloud platforms.
+                This is due to network access restrictions, firewall limitations, and security policies that prevent
+                direct camera connections from remote servers.
+            </p>
+            <p style="margin: 0.5rem 0 0 0; font-size: 0.9rem;">
+                💡 <em><strong>Recommended alternatives:</strong></em><br>
+                • Use <strong>Tab 1 (Image Analysis)</strong> for uploaded photos<br>
+                • Use <strong>Tab 2 (Video Analysis)</strong> for uploaded videos<br>
+                • <strong>Deploy locally</strong> for RTSP camera functionality
+            </p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        # Show deployment options
+        st.markdown("### 🚀 Deployment Options")
+        col1, col2 = st.columns(2)
+        
+        with col1:
+            st.markdown("""
+            **🖥️ Local Deployment** (Full Features)
+            ```bash
+            # Run locally for camera access
+            streamlit run app/web/streamlit_app_enhanced.py
+            ```
+            ✅ RTSP cameras<br>
+            ✅ Webcam streaming<br>
+            ✅ Network discovery<br>
+            ✅ Full functionality
+            """)
+        
+        with col2:
+            st.markdown("""
+            **☁️ Cloud Deployment** (Limited Features)
+            ```bash
+            # Current deployment
+            # Camera features disabled
+            ```
+            ✅ Image analysis<br>
+            ✅ Video analysis<br>
+            ❌ RTSP cameras<br>
+            ❌ Webcam streaming
+            """)
+        
+        return
 
     # Important deployment note
     st.markdown("""
