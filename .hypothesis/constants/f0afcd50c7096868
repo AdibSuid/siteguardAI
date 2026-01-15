@@ -1,0 +1,4 @@
+# file: C:\Users\adibc\Documents\siteguardAI\app\core\database\connection.py
+# hypothesis_version: 6.150.2
+
+[3600, '10', '20', 'DATABASE_URL', 'DB_MAX_OVERFLOW', 'DB_POOL_SIZE', 'SELECT 1', 'checked_in', 'checked_out', 'mysql+pymysql://', 'overflow', 'pool_size', 'total_connections']

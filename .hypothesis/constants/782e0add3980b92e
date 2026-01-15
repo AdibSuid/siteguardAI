@@ -1,0 +1,4 @@
+# file: C:\Users\adibc\Documents\siteguardAI\app\core\database\service.py
+# hypothesis_version: 6.150.2
+
+[100.0, 100, 'Viewer', 'compliance_rate', 'count', 'date', 'location', 'text', 'total_detections', 'total_violations', 'violation_count', 'violation_type']

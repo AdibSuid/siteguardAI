@@ -1,0 +1,4 @@
+# file: C:\Users\adibc\Documents\siteguardAI\app\core\database\models.py
+# hypothesis_version: 6.150.2
+
+[100, 255, 500, 'CASCADE', 'DetectionHistory', 'Report', 'User', 'Viewer', 'Violation', 'all, delete-orphan', 'detection_history', 'location', 'report', 'report_id', 'reports', 'reports.id', 'timestamp', 'user', 'user_id', 'users', 'users.id', 'violation_type', 'violations']
